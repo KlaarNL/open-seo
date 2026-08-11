@@ -49,6 +49,10 @@ export const Route = createRootRoute({
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
+      {
+        name: "robots",
+        content: "noindex,nofollow,noarchive",
+      },
       // Disable browser auto-translate (Google Translate) app-wide. It rewrites
       // text nodes into <font> wrappers, which React then can't remove/insert,
       // crashing render with NotFoundError ("removeChild"/"insertBefore"). The

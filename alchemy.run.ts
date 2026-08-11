@@ -6,6 +6,7 @@ import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import { Redacted } from "effect";
+import { readFileSync } from "node:fs";
 import { unstable_readConfig } from "wrangler";
 import { z } from "zod";
 import {
@@ -366,6 +367,9 @@ export default Alchemy.Stack(
       bundle: false,
       assets: {
         directory: "./dist/client",
+        // Alchemy tracks `_headers` in its asset hash but its Worker upload
+        // API expects the file contents explicitly in the asset config.
+        headers: readFileSync("./dist/client/_headers", "utf8"),
       },
       compatibility: {
         date: wrangler.compatibility_date,
