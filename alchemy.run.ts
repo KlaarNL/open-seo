@@ -79,10 +79,11 @@ const PROD_NAMES = {
 
 const makeResources = (stage: string) => {
   const prod = stage === HOSTED_PROD_STAGE;
-  // Prod adopts the LIVE resources; retain makes `alchemy destroy --stage
-  // hosted-prod` (or an orphaning refactor) forget state instead of deleting
-  // them.
-  const keep = Alchemy.RemovalPolicy.retain(prod);
+  // Production and the KlaarNL self-host are durable installations. A
+  // destroy or an orphaning refactor may forget their Alchemy state, but must
+  // never delete D1, R2, or KV data. Ephemeral preview stages remain
+  // destroyable.
+  const keep = Alchemy.RemovalPolicy.retain(prod || stage === "selfhost");
   return {
     DB: Cloudflare.D1.Database("DB", {
       name: prod ? PROD_NAMES.d1 : `open-seo-db-${stage}`,
@@ -430,11 +431,11 @@ export default Alchemy.Stack(
         ),
       },
     }).pipe(
-      // Prod adopts the live worker serving app.openseo.so; never delete it
-      // on destroy. (Workflow registrations aren't individually retainable —
+      // Production and the KlaarNL self-host retain their live Worker on
+      // destroy. (Workflow registrations aren't individually retainable —
       // they're created inside the worker provider — but re-registering them
       // is a lossless upsert, unlike deleting the data-bearing resources.)
-      Alchemy.RemovalPolicy.retain(prod),
+      Alchemy.RemovalPolicy.retain(prod || stage === "selfhost"),
     );
 
     return { url: app.url.as<string>() };

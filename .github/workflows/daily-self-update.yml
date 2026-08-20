@@ -1,0 +1,140 @@
+name: Daily OpenSEO self-update
+
+on:
+  schedule:
+    - cron: "37 4 * * *"
+      timezone: "Europe/Amsterdam"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Redeploy the current version even when no release is new
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: open-seo-self-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'KlaarNL/open-seo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout KlaarNL source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select and merge the latest stable release
+        id: release
+        shell: bash
+        env:
+          FORCE_DEPLOY: ${{ inputs.force || false }}
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/every-app/open-seo.git
+          latest_tag="$(curl --fail --silent --show-error --retry 3 \
+            https://api.github.com/repos/every-app/open-seo/releases/latest \
+            | node -e 'let input=""; process.stdin.on("data", c => input += c); process.stdin.on("end", () => process.stdout.write(JSON.parse(input).tag_name ?? ""));')"
+          if [[ ! "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid latest stable release tag: $latest_tag" >&2
+            exit 1
+          fi
+
+          git fetch --no-tags upstream \
+            "+refs/heads/main:refs/remotes/upstream/main" \
+            "+refs/tags/$latest_tag:refs/tags/$latest_tag"
+          git merge-base --is-ancestor "$latest_tag^{commit}" upstream/main
+
+          changed=false
+          push=false
+          if ! git merge-base --is-ancestor "$latest_tag^{commit}" HEAD; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git merge --no-ff -m "chore: update OpenSEO to $latest_tag" "$latest_tag^{commit}"
+            changed=true
+            push=true
+          elif (( $(date +%s) - $(git show -s --format=%ct HEAD) >= 45 * 24 * 60 * 60 )); then
+            # Public-repository schedules are disabled after 60 days without a
+            # commit. One empty commit at day 45 keeps the updater permanent
+            # without creating files, branches, artifacts, or cloud resources.
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep daily updater active"
+            push=true
+          fi
+
+          deploy="$changed"
+          if [[ "$FORCE_DEPLOY" == "true" ]]; then deploy=true; fi
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "push=$push" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        if: steps.release.outputs.deploy == 'true'
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Setup Node.js
+        if: steps.release.outputs.deploy == 'true'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+
+      - name: Install locked dependencies
+        if: steps.release.outputs.deploy == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate candidate
+        if: steps.release.outputs.deploy == 'true'
+        run: |
+          pnpm run ci:check
+          pnpm run test:ci
+          pnpm vite build --mode selfhost
+          pnpm tsc --noEmit
+
+      - name: Verify data and deploy atomically
+        if: steps.release.outputs.deploy == 'true'
+        shell: bash
+        env:
+          CI: "true"
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ENV_SELFHOST: ${{ secrets.ENV_SELFHOST }}
+          OPENSEO_ALLOWED_NONEMPTY_DROPS: audit_links
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_ACCOUNT_ID:?missing CLOUDFLARE_ACCOUNT_ID secret}"
+          : "${CLOUDFLARE_API_TOKEN:?missing CLOUDFLARE_API_TOKEN secret}"
+          : "${ENV_SELFHOST:?missing ENV_SELFHOST secret}"
+          umask 077
+          trap 'rm -f .env.selfhost' EXIT
+          printenv ENV_SELFHOST > .env.selfhost
+          node scripts/verify-selfhost-d1.mjs predeploy
+          pnpm alchemy deploy --env-file .env.selfhost --stage selfhost --yes
+          node scripts/verify-selfhost-d1.mjs integrity
+
+          status="$(curl --silent --show-error --output /dev/null \
+            --write-out '%{http_code}' --max-time 30 \
+            https://open-seo-selfhost.klaarnlapp.workers.dev/api/health)"
+          case "$status" in
+            302|401|403) ;;
+            *) echo "Cloudflare Access gate returned unexpected HTTP $status" >&2; exit 1 ;;
+          esac
+
+      - name: Record the deployed release or scheduler heartbeat
+        if: steps.release.outputs.push == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push origin HEAD:main
