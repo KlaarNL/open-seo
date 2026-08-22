@@ -43,8 +43,11 @@ Changes to `.greptile/**`, `AGENTS.md`, `CLAUDE.md`, `.agents/skills/**`, and `.
 These apply to `KlaarNL/open-seo` (this fork), not to `every-app/open-seo`.
 
 - `main` is this fork's integration branch.
+- Before a work session, `git fetch origin` and inspect `origin/main` and the branch you will
+  edit. Do not start new commits until you know what landed since you last worked.
 - Start new work from an up-to-date `main` with `git pull --ff-only`. Continue a named branch the
-  same way. If fast-forward is refused, stop and reconcile.
+  same way. If `origin/main` moved, merge it into that branch before new commits. If fast-forward
+  is refused, stop and reconcile.
 - Do work on named branches and land it on `main` with a pull request. Do not commit ordinary work
   directly on `main`.
 - Do not force-push `main` or a shared branch unless everyone using it has agreed.
