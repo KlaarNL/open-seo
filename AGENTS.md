@@ -37,3 +37,16 @@ Changes to `.greptile/**`, `AGENTS.md`, `CLAUDE.md`, `.agents/skills/**`, and `.
 
 - Prefer read-only checks when authentication, ownership, or remote configuration is unclear.
 - Treat GitHub pushes and Cloudflare deployments as separate operations; verify and report each one.
+
+## Collaboration and branch safety
+
+These apply to `KlaarNL/open-seo` (this fork), not to `every-app/open-seo`.
+
+- `main` is this fork's integration branch.
+- Start new work from an up-to-date `main` with `git pull --ff-only`. Continue a named branch the
+  same way. If fast-forward is refused, stop and reconcile.
+- Do work on named branches and land it on `main` with a pull request. Do not commit ordinary work
+  directly on `main`.
+- Do not force-push `main` or a shared branch unless everyone using it has agreed.
+- Do not push KlaarNL work to `every-app/open-seo` unless that upstream contribution is explicitly
+  requested and authorized.
