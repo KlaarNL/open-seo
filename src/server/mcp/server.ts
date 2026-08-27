@@ -70,7 +70,7 @@ import {
 } from "@/server/mcp/tools/site-audit-tools";
 import { whoamiTool } from "@/server/mcp/tools/whoami";
 
-type ToolSchema = z.ZodType | z.ZodRawShape;
+export type ToolSchema = z.ZodType | z.ZodRawShape;
 
 // Tools declare inputSchema as either a raw Zod shape (most tools) or a full
 // z.object (the GA4 tools); both normalize to one object schema at
@@ -81,7 +81,7 @@ type ToolArgs<Input extends ToolSchema> = Input extends z.ZodType
     ? z.infer<z.ZodObject<Input>>
     : never;
 
-type OpenSeoToolDefinition<Input extends ToolSchema> = {
+export type OpenSeoToolDefinition<Input extends ToolSchema> = {
   name: string;
   config: {
     title?: string;
