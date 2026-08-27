@@ -186,6 +186,8 @@ export { OnboardingChatAgent } from "./server/features/onboarding/OnboardingChat
 export { SamChatAgent } from "./server/features/sam/SamChatAgent";
 // Durable Object class for the per-audit crawl scratchpad.
 export { AuditScratchpad } from "./server/features/audit/AuditScratchpad";
+// Project-scoped, read-only RPC entrypoint for same-account Worker bindings.
+export { OpenSeoReadGateway } from "./server/read-gateway";
 
 // Daily OAuth KV garbage collection; must match a trigger in wrangler.jsonc.
 const MCP_OAUTH_PURGE_CRON = "17 3 * * *";
