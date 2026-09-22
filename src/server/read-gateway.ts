@@ -232,6 +232,10 @@ async function resolveContext(env: Cloudflare.Env): Promise<GatewayContext> {
         userId: SERVICE_PRINCIPAL_ID,
         userEmail: SERVICE_PRINCIPAL_EMAIL,
         organizationId: project.organizationId,
+        // Self-host/delegated modes carry one implicit owner per org, and
+        // the gateway is pinned to the configured project's organization.
+        role: "owner",
+        orgScope: "pinned",
         scopes: ["openseo:read"],
         clientId: "cloudflare-service-binding",
         baseUrl: DASHBOARD_BASE_URL,
