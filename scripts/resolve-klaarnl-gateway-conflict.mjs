@@ -31,7 +31,8 @@ if (conflicted.length !== 1 || conflicted[0] !== GIT) {
 // Upstream's side wins outright.
 runGit(["checkout", "--theirs", GIT]);
 
-const gatewayExport = 'export { OpenSeoReadGateway } from "./server/read-gateway";';
+const gatewayExport =
+  'export { OpenSeoReadGateway } from "./server/read-gateway";';
 const comment =
   "// Project-scoped, read-only RPC entrypoint for same-account Worker bindings.";
 
