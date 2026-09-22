@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: open-seo-self-update
@@ -138,3 +139,42 @@ jobs:
           auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
             push origin HEAD:main
+
+      - name: Close the failure issue after a healthy run
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="Daily OpenSEO self-update is failing"
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --search "\"$title\" in:title" --json number \
+            --jq '.[0].number // ""')"
+          if [[ -n "$number" ]]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment \
+              "Run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID succeeded; production is current again."
+          fi
+
+  alert:
+    name: Alert on failure
+    needs: update
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or refresh the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Daily OpenSEO self-update is failing"
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --search "\"$title\" in:title" --json number \
+            --jq '.[0].number // ""')"
+          body="$(printf 'The daily self-update failed on run %s. Production keeps serving the last good release until a merge and deploy succeed.\n\nThe most common cause is a merge conflict against the KlaarNL patches (src/server.ts, alchemy.run.ts): resolve it on main the same way, then run this workflow with force to deploy.' "$RUN_URL")"
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
