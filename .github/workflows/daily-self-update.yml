@@ -58,7 +58,14 @@ jobs:
           if ! git merge-base --is-ancestor "$latest_tag^{commit}" HEAD; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git merge --no-ff -m "chore: update OpenSEO to $latest_tag" "$latest_tag^{commit}"
+            if ! git merge --no-ff -m "chore: update OpenSEO to $latest_tag" "$latest_tag^{commit}"; then
+              # The fork carries one source patch: the read-gateway export in
+              # src/server.ts. Resolve that known conflict deterministically
+              # (upstream side + re-appended export) and let the validation
+              # gate prove the merge. Any other conflict stops the update.
+              node scripts/resolve-klaarnl-gateway-conflict.mjs
+              git commit --no-edit
+            fi
             changed=true
             push=true
           elif (( $(date +%s) - $(git show -s --format=%ct HEAD) >= 45 * 24 * 60 * 60 )); then
@@ -172,7 +179,7 @@ jobs:
           number="$(gh issue list --repo "$GITHUB_REPOSITORY" \
             --state open --search "\"$title\" in:title" --json number \
             --jq '.[0].number // ""')"
-          body="$(printf 'The daily self-update failed on run %s. Production keeps serving the last good release until a merge and deploy succeed.\n\nThe most common cause is a merge conflict against the KlaarNL patches (src/server.ts, alchemy.run.ts): resolve it on main the same way, then run this workflow with force to deploy.' "$RUN_URL")"
+          body="$(printf 'The daily self-update failed on run %s. Production keeps serving the last good release until a merge and deploy succeed.\n\nThe gateway-export conflict in src/server.ts resolves itself; any other conflict needs a human: resolve it on main, then run this workflow with force to deploy.' "$RUN_URL")"
           if [[ -n "$number" ]]; then
             gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
           else
