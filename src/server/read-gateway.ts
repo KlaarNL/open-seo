@@ -176,16 +176,7 @@ function resolveCapabilityRequest(input: unknown) {
   return { capability, request: request.data };
 }
 
-export function validateReadGatewayRequest(input: unknown) {
-  const { capability, request } = resolveCapabilityRequest(input);
-  return {
-    capabilityId: capability.id,
-    accessClass: capability.accessClass,
-    allowProviderSpend: request.allowProviderSpend,
-  };
-}
-
-export function describeReadGateway() {
+function describeReadGateway() {
   return {
     gatewayVersion: GATEWAY_VERSION,
     scope: "openseo:read",

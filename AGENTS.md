@@ -37,3 +37,7 @@ Changes to `.greptile/**`, `AGENTS.md`, `CLAUDE.md`, `.agents/skills/**`, and `.
 
 - Prefer read-only checks when authentication, ownership, or remote configuration is unclear.
 - Treat GitHub pushes and Cloudflare deployments as separate operations; verify and report each one.
+
+## KlaarNL test ownership
+
+- `src/server/read-gateway.test.ts` drives only the `OpenSeoReadGateway` RPC methods (`describe`, `query`, `profile`). Do not export gateway internals for tests. Fake only the upstream service seams that upstream's own tool tests fake (`ProjectService`, `KeywordResearchService`, `GscService`), and put self-host config in the `cloudflare:workers` env instead of mocking `runtime-env`.
