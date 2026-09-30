@@ -40,4 +40,9 @@ Changes to `.greptile/**`, `AGENTS.md`, `CLAUDE.md`, `.agents/skills/**`, and `.
 
 ## KlaarNL test ownership
 
-- `src/server/read-gateway.test.ts` drives only the `OpenSeoReadGateway` RPC methods (`describe`, `query`, `profile`). Do not export gateway internals for tests. Fake only the upstream service seams that upstream's own tool tests fake (`ProjectService`, `KeywordResearchService`, `GscService`), and put self-host config in the `cloudflare:workers` env instead of mocking `runtime-env`.
+Write, change, and review tests with the `test-audit` skill (`~/.agents/skills/test-audit`): pass its authoring gate and junk-pattern check before a test lands.
+
+- KlaarNL owns only the tests it added or changed against upstream (`git diff upstream/main...main`). Leave upstream-owned tests untouched so self-update merges stay clean.
+- `src/server/read-gateway.test.ts` drives only the `OpenSeoReadGateway` RPC methods (`describe`, `query`, `profile`). Do not export gateway internals for tests; knip fails on an export only a test uses.
+- Fake only the upstream service seams upstream's own tool tests fake (`ProjectService`, `KeywordResearchService`, `GscService`). Put self-host config in the `cloudflare:workers` env instead of mocking `runtime-env`. If upstream moves one of those modules, update the mock path.
+- A rejection row must be able to fail: use input that passes the real tool schema, and assert that the guard's downstream call (project auth) never ran, not a call no path could reach.
