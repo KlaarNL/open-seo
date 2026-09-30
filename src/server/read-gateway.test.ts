@@ -161,7 +161,7 @@ describe("OpenSeoReadGateway", () => {
         name: "paid provider read without admission",
         request: {
           capabilityId: "research_keywords",
-          arguments: { seeds: ["inburgering"] },
+          arguments: { seeds: [{ seed: "inburgering" }] },
         },
         error: "Paid provider read requires explicit admission.",
       },
@@ -177,13 +177,15 @@ describe("OpenSeoReadGateway", () => {
       await expect(createGateway(pinnedEnv).query(request)).rejects.toThrow(
         error,
       );
-      expect(mocks.getSavedKeywords).not.toHaveBeenCalled();
+      // Every exposed tool enters upstream project auth before its service
+      // call, so this proves no tool was dispatched for any row.
+      expect(mocks.getProjectForOrganization).not.toHaveBeenCalled();
     });
 
     it("admits a paid read once spend is allowed", async () => {
       const request = {
         capabilityId: "research_keywords",
-        arguments: { seeds: ["inburgering"] },
+        arguments: { seeds: [{ seed: "inburgering" }] },
       };
       // Env has no pinned project: getting past admission surfaces the
       // configuration error instead of the admission error.
@@ -214,8 +216,17 @@ describe("OpenSeoReadGateway", () => {
           "searchConsole",
         ]),
       );
-      expect(result.keywords.accessClass).toBe("stored_read");
-      expect(result.searchConsole.accessClass).toBe("connected_read");
+      // Each read is the same receipt query() returns to the factory.
+      expect(result.keywords).toMatchObject({
+        capabilityId: "list_saved_keywords",
+        accessClass: "stored_read",
+      });
+      expect(result.searchConsole).toMatchObject({
+        capabilityId: "get_search_console_performance",
+        accessClass: "connected_read",
+      });
+      expect(result.keywords.data).toEqual(expect.any(Object));
+      expect(result.searchConsole.data).toEqual(expect.any(Object));
       expect(mocks.getProjectForOrganization).toHaveBeenCalledWith(
         "org_k",
         "p_pinned",
