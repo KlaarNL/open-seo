@@ -71,7 +71,6 @@ const pinnedEnv = { OPEN_SEO_READ_PROJECT_ID: "p_pinned" };
 
 describe("OpenSeoReadGateway", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.getProjectById.mockResolvedValue({
       id: "p_pinned",
       organizationId: "org_k",
